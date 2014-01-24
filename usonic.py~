@@ -1,0 +1,212 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# import required modules
+import time
+import RPi.GPIO as GPIO
+import smbus
+import pygame
+from array import *
+
+UltrasonicSensorSRF02Address = 0x71
+UltrasonicSensorSRF08Address = 0x70
+
+#output GPIO pins e.g. relais
+GPIOOutput1 = 22
+GPIOOutput2 = 27
+
+# variables
+
+#The min time (s) between two output switch events
+DeadTime = 1
+
+#Trigger distance
+#If the detected distance is smaller than this value (cm) the output switch is opened
+TriggerDistance = 30
+
+#The time the output switch is open
+#1.5 shot
+OpenTime = 0.5
+
+
+
+
+# main function
+def main():
+
+  initAudio()
+
+  DeadTimeStart = 0
+  
+  shotWasPoured = False
+  try:
+    while True:
+
+
+      Distance = MeasureDistanceSRF08()
+
+      #If a shot has been poured do nothing until the sensor detects nothing (0)
+      #if shotWasPoured and Distance >= 1:
+      #  continue
+      #else:
+      #  shotWasPoured = False
+          
+
+      if Distance <= 1 or Distance >= 4:
+      	#turn on motor
+      	GPIO.output(GPIOOutput1, GPIO.LOW)
+      else:
+        #turn off motor
+        GPIO.output(GPIOOutput1, GPIO.HIGH)
+        
+        #pour
+        GPIO.output(GPIOOutput2, GPIO.LOW)
+        time.sleep(1.5)
+        GPIO.output(GPIOOutput2, GPIO.HIGH)
+        time.sleep(0.1)
+        #shotWasPoured = True
+        
+        #turn on motor
+        GPIO.output(GPIOOutput1, GPIO.LOW)
+      	
+      	#goto end of glass
+      	while Distance == 3:
+        	Distance = MeasureDistanceSRF08()
+        
+        #move minimal distance
+        #turn on motor
+        #GPIO.output(GPIOOutput1, GPIO.LOW)
+        #time.sleep(0.045)
+
+      """
+      if Distance > 170:
+        continue
+   
+      if Distance <= TriggerDistance:
+        GPIO.output(GPIOOutput1, GPIO.LOW)
+      else:
+	GPIO.output(GPIOOutput1, GPIO.HIGH)
+
+      #operation with dead time
+      """
+      """
+      if Distance <= TriggerDistance and time.time() - DeadTimeStart >= DeadTime:
+	 DeadTimeStart = time.time()
+         playSound()
+         GPIO.output(GPIOOutput1, GPIO.LOW)
+         time.sleep(OpenTime)
+         GPIO.output(GPIOOutput1, GPIO.HIGH)
+
+      """
+  # reset GPIO settings if user pressed Ctrl+C
+  except KeyboardInterrupt:
+    print("Measurement stopped by user")
+    GPIO.cleanup()
+
+"""
+def MeasureDistance():
+  #Simple measurement - result in cm
+  i2c.write_byte_data(UltrasonicSensorSRF08Address, 0, 81)
+  time.sleep(0.1)
+  return i2c.read_word_data(UltrasonicSensorSRF08Address, 2) / 255
+"""
+
+def MeasureDistance():
+  #Simple measurement - result in cm
+  i2c.write_byte_data(UltrasonicSensorSRF08Address, 0, 81)
+  time.sleep(0.1)
+ 
+  high = i2c.read_word_data(UltrasonicSensorSRF08Address, 2)
+  print i2c.read_word_data(UltrasonicSensorSRF08Address, 3)
+	
+  return high
+
+
+def MeasureDistanceSRF08():
+
+  #set aplification to 94 (see datasheet page 4 http://www.roboter-teile.de/datasheets/srf08.pdf)
+  i2c.write_byte_data(UltrasonicSensorSRF08Address, 1, 1)
+
+
+  #set range to 9cm (doc p. 3)
+  i2c.write_byte_data(UltrasonicSensorSRF08Address, 2, 1)
+
+  #Simple measurement - result in cm
+  i2c.write_byte_data(UltrasonicSensorSRF08Address, 0, 81)
+  time.sleep(0.004)
+
+  read_registers = array('h')
+
+
+  lowByte = i2c.read_word_data(UltrasonicSensorSRF08Address, 3)
+  print lowByte
+  return lowByte
+  #read_registers.append(highByte/256)
+  #read_registers.append(lowByte | (highByte<<8))
+
+  #print read_registers
+
+
+
+
+def initAudio():
+  pygame.mixer.init()
+  pygame.mixer.music.load("arrr.mp3")
+
+def playSound():
+  pygame.mixer.music.play()
+
+def changeI2CAddress(oldAddress, newAddress):
+  i2c.write_byte_data(oldAddress,0,0xA0)
+  i2c.write_byte_data(oldAddress,0,0xAA)
+  i2c.write_byte_data(oldAddress,0,0xA5)
+  i2c.write_byte_data(oldAddress,0,newAddress)
+
+if __name__ == '__main__':
+  # use GPIO pin numbering convention (not the actual pin numbers)
+  GPIO.setmode(GPIO.BCM)
+
+  # set up GPIO pins
+  GPIO.setup(GPIOOutput1, GPIO.OUT)
+  GPIO.setup(GPIOOutput2, GPIO.OUT)
+
+
+  GPIO.output(GPIOOutput1, GPIO.HIGH)
+  GPIO.output(GPIOOutput2, GPIO.HIGH)
+
+
+  #init smbus 1
+  i2c = smbus.SMBus(1)
+
+
+  # call main function
+  main()
+
+# function to measure the distance
+"""
+def MeasureDistance():
+  # set trigger to high
+  GPIO.output(GPIOTrigger, GPIO.HIGH)
+
+  # set trigger after 10µs to low
+  time.sleep(0.00001)
+  GPIO.output(GPIOTrigger, GPIO.LOW)
+
+  # store initial start time
+  StartTime = time.time()
+
+  # store start time
+  while GPIO.input(GPIOEcho) == 0:
+    StartTime = time.time()
+
+  # store stop time
+  
+  while GPIO.input(GPIOEcho) == 1:
+    StopTime = time.time()
+
+  # calculate distance
+  TimeElapsed = StopTime - StartTime
+  Distance = (TimeElapsed * 34300) / 2
+
+  return Distance
+"""
