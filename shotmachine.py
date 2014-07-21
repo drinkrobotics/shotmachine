@@ -16,8 +16,8 @@ GPIOOutput1 = 22
 GPIOOutput2 = 27
 GPIOOutput3 = 4
 
-GPIOInput1 = 17
-
+GPIOInput1 = 18
+GPIOInput2 = 19
 # variables
 
 #The min time (s) between two output switch events
@@ -43,11 +43,12 @@ def main():
   
   shotWasPoured = False
   
-  while True:
+  x = 1
+
+  while x is 1:
     if MeasureDistanceSRF02() < 20:
       try:
         while True:
-        
           #Check if end contact was activated
           if(not GPIO.input(GPIOInput1)):
             GPIO.output(GPIOOutput3, GPIO.HIGH)
@@ -96,10 +97,13 @@ def main():
         GPIO.cleanup()
       except IOError:
         print("IO Error")
-        GPIO.cleanup()
-        #GPIO.output(GPIOOutput1, GPIO.HIGH)
-        #GPIO.output(GPIOOutput2, GPIO.HIGH)
-    
+        GPIO.output(GPIOOutput1, GPIO.HIGH)
+        GPIO.output(GPIOOutput2, GPIO.HIGH)
+        GPIO.output(GPIOOutput3, GPIO.LOW)
+        #GPIO.cleanup()
+      x = 0
+
+      
 
 """
 def MeasureDistance():
@@ -110,12 +114,14 @@ def MeasureDistance():
 """
 
 def MeasureDistanceSRF02():
+  
+  return 10
   #Simple measurement - result in cm
   i2c.write_byte_data(UltrasonicSensorSRF02Address, 0, 81)
   time.sleep(0.1)
  
   high = i2c.read_word_data(UltrasonicSensorSRF02Address, 3)
-  print "Dist activte " + str(high)
+  #print "Dist activte " + str(high)
   return high
 
 
@@ -130,11 +136,23 @@ def MeasureDistanceSRF08():
 
   #Simple measurement - result in cm
   i2c.write_byte_data(UltrasonicSensorSRF08Address, 0, 81)
+  
+ 
+   
   time.sleep(0.0045)
-
+  
+  #version = 0xff
+  #while version is 0xFF:
+    #version = i2c.read_word_data(UltrasonicSensorSRF08Address, 0)
+    #print version
+ 
+  
   lowByte = i2c.read_word_data(UltrasonicSensorSRF08Address, 3)
   print lowByte
   return lowByte
+  
+  
+  
   #read_registers.append(highByte/256)
   #read_registers.append(lowByte | (highByte<<8))
 
@@ -176,6 +194,7 @@ if __name__ == '__main__':
   #init smbus 1
   i2c = smbus.SMBus(1)
 
+  time.sleep(0.5)
 
   # call main function
   main()
