@@ -12,12 +12,12 @@ UltrasonicSensorSRF02Address = 0x71
 UltrasonicSensorSRF08Address = 0x70
 
 #output GPIO pins e.g. relais
-GPIOOutput1 = 22
-GPIOOutput2 = 27
-GPIOOutput3 = 4
+GPIOOutput1 = 11  #motor
+GPIOOutput2 = 7 #pump
+GPIOOutput3 = 9  #direction of motor
+GPIOOutput4 = 8 #direction of pump
 
-GPIOInput1 = 18
-GPIOInput2 = 19
+GPIOInput1 = 18  #end reached switch
 # variables
 
 #The min time (s) between two output switch events
@@ -30,6 +30,8 @@ TriggerDistance = 30
 #The time the output switch is open
 #1.5 shot
 OpenTime = 0.5
+
+pwmDutyCycle = 100
 
 
 
@@ -52,13 +54,14 @@ def main():
           #Check if end contact was activated
           if(not GPIO.input(GPIOInput1)):
             GPIO.output(GPIOOutput3, GPIO.HIGH)
-            time.sleep(0.78)
-            GPIO.output(GPIOOutput1, GPIO.HIGH)
+            time.sleep(0.435)
+            pwm.stop()
+            GPIO.output(GPIOOutput1, GPIO.LOW)
             GPIO.output(GPIOOutput3, GPIO.LOW)
             break
           
 
-
+          #MeasureDistanceSRF02()
           Distance = MeasureDistanceSRF08()
 
           #If a shot has been poured do nothing until the sensor detects nothing (0)
@@ -70,22 +73,24 @@ def main():
 
           if Distance <= 1 or Distance >= 4:
             #turn on motor
-            GPIO.output(GPIOOutput1, GPIO.LOW)
+            pwm.start(pwmDutyCycle)
           else:
             #turn off motor
-            GPIO.output(GPIOOutput1, GPIO.HIGH)
+            pwm.stop()
+            GPIO.output(GPIOOutput1, GPIO.LOW)
+            MeasureDistanceSRF02()
             
             #pour
-            GPIO.output(GPIOOutput2, GPIO.LOW)
+            GPIO.output(GPIOOutput2, GPIO.HIGH)
             ml = 20.0
             mlPerSec = 3*220/60 #225 bei 24Volt
             time.sleep(ml/mlPerSec)
-            GPIO.output(GPIOOutput2, GPIO.HIGH)
+            GPIO.output(GPIOOutput2, GPIO.LOW)
             time.sleep(0.1)
             #shotWasPoured = True
             
             #turn on motor
-            GPIO.output(GPIOOutput1, GPIO.LOW)
+            pwm.start(pwmDutyCycle)
             
           	#goto end of glass
             while Distance == 3 and GPIO.input(GPIOInput1):
@@ -97,8 +102,9 @@ def main():
         GPIO.cleanup()
       except IOError:
         print("IO Error")
-        GPIO.output(GPIOOutput1, GPIO.HIGH)
-        GPIO.output(GPIOOutput2, GPIO.HIGH)
+        pwm.stop()
+        GPIO.output(GPIOOutput1, GPIO.LOW)
+        GPIO.output(GPIOOutput2, GPIO.LOW)
         GPIO.output(GPIOOutput3, GPIO.LOW)
         #GPIO.cleanup()
       x = 0
@@ -114,14 +120,14 @@ def MeasureDistance():
 """
 
 def MeasureDistanceSRF02():
-  
   return 10
+  
   #Simple measurement - result in cm
   i2c.write_byte_data(UltrasonicSensorSRF02Address, 0, 81)
   time.sleep(0.1)
  
   high = i2c.read_word_data(UltrasonicSensorSRF02Address, 3)
-  #print "Dist activte " + str(high)
+  print "Dist activte " + str(high)
   return high
 
 
@@ -139,7 +145,8 @@ def MeasureDistanceSRF08():
   
  
    
-  time.sleep(0.0045)
+  #time.sleep(0.0045)
+  time.sleep(0.005)
   
   #version = 0xff
   #while version is 0xFF:
@@ -148,7 +155,7 @@ def MeasureDistanceSRF08():
  
   
   lowByte = i2c.read_word_data(UltrasonicSensorSRF08Address, 3)
-  print lowByte
+  #print lowByte
   return lowByte
   
   
@@ -182,13 +189,16 @@ if __name__ == '__main__':
   GPIO.setup(GPIOOutput1, GPIO.OUT)
   GPIO.setup(GPIOOutput2, GPIO.OUT)
   GPIO.setup(GPIOOutput3, GPIO.OUT)
+  GPIO.setup(GPIOOutput4, GPIO.OUT)
   GPIO.setup(GPIOInput1, GPIO.IN)
   
+  pwm = GPIO.PWM(GPIOOutput1, 450)
 
-
-  GPIO.output(GPIOOutput1, GPIO.HIGH)
-  GPIO.output(GPIOOutput2, GPIO.HIGH)
+  pwm.stop()
+  GPIO.output(GPIOOutput1, GPIO.LOW)
+  GPIO.output(GPIOOutput2, GPIO.LOW)
   GPIO.output(GPIOOutput3, GPIO.LOW)
+  GPIO.output(GPIOOutput4, GPIO.HIGH)
 
 
   #init smbus 1
