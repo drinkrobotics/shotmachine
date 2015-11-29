@@ -243,9 +243,9 @@ void generate_bullets_array(int number, bool *where_is_a_glass_array, int *bulle
 
   //generate the bullets at random locations
 
-  SwSerial.print("Number of bullets in game: ");
-  SwSerial.print(NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE);
-  SwSerial.print("\n");
+  terminal.println("Number of bullets in game: ");
+  terminal.println(NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE);
+  terminal.println("\n");
 
   for (int bullet_number = 0; bullet_number < NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE; bullet_number++) {
 
@@ -253,15 +253,15 @@ void generate_bullets_array(int number, bool *where_is_a_glass_array, int *bulle
 
     //find a space in the array with no bullet
     while (bullet_positions_array[random_number] == 1 || where_is_a_glass_array[random_number] == false) {
-      SwSerial.print("Position not suitable for bullet because either there was already a bullet or no glass at this position");
-      SwSerial.print(random_number);
-      SwSerial.print("\n");
+      terminal.println("Position not suitable for bullet because either there was already a bullet or no glass at this position");
+      terminal.println(random_number);
+      terminal.println("\n");
       random_number = random(number);
     }
 
-    SwSerial.print("Bullet at Position: ");
-    SwSerial.print(random_number);
-    SwSerial.print("\n");
+    terminal.println("Bullet at Position: ");
+    terminal.println(random_number);
+    terminal.println("\n");
 
     bullet_positions_array[random_number] = 1;
 
@@ -320,8 +320,10 @@ void make_shots(int number) {
       int distance = sensor.getDistance();
       delay(100);
       distance = sensor.getDistance();
-      SwSerial.print("Distance measured (mm) = ");
+      terminal.print("Distance measured (mm) = ");
       terminal.println(distance);
+
+      Blynk.virtualWrite(V5, distance);
 
       if (distance > 80) {
         where_is_a_glass_array[pos] = false;
@@ -374,14 +376,14 @@ void fill_glass(int pump) {
 
   if (SIM_MODE) {
 
-    terminal.println("Start pump ");
+    terminal.print("Start pump ");
     terminal.println(pump);
-    terminal.println("\n");
+
   } else {
 
-    terminal.println("Start pump ");
+    terminal.print("Start pump ");
     terminal.println(pump);
-    terminal.println("\n");
+
     if (pump == 0) {
       digitalWrite(pinPump1, LOW);
       delay(TIME_TO_FILL_MS_PUMP_1);
@@ -392,9 +394,8 @@ void fill_glass(int pump) {
       digitalWrite(pinPump2, HIGH);
     }
 
-    terminal.println("Stop pump.");
+    terminal.print("Stop pump.");
     terminal.println(pump);
-    terminal.println("\n");
 
     //delay for drops
     delay(400);
@@ -419,7 +420,7 @@ BLYNK_WRITE(V4)
 {
   if(proximity_sensor_available){
     checkForGlassEnabled = param.asInt();
-    terminal.println("Setting check for glasses to: ");
+    terminal.print("Setting check for glasses to: ");
     terminal.println(checkForGlassEnabled);
   }else{
     terminal.println("Proximity Sensor not connected/available. Cannot enable or disable.");
@@ -441,7 +442,7 @@ BLYNK_WRITE(V3)
     number_of_shots = _number_of_shots;
   }
 
-  terminal.println("Got message V3 Number of Shots set to: ");
+  terminal.print("Got message V3 Number of Shots set to: ");
   terminal.println(number_of_shots);
 }
 
@@ -450,14 +451,14 @@ void loop() {
 
   Blynk.run();
 
-  /*
+
   if (checkForGlassEnabled) {
     int distance = sensor.getDistance();
-    SwSerial.print("Distance measured (mm) = ");
     terminal.println(distance);
-    delay(100);
+    Blynk.virtualWrite(V5, distance);
+    delay(500);
   }
-  */
+
   if (digitalRead(pinStartSwitch) == LOW) {
     make_shots(number_of_shots);
   }
