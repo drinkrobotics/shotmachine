@@ -28,6 +28,10 @@ SoftwareSerial SwSerial(2, 3); // RX, TX
 #define STEPS_TO_FIRST_SHOT 1420
 #define STEPS_BETWEEN_SHOTS 840
 
+//proximity sensor
+#define TO_NEAR_DISTANCE_THRESHOLD 25
+#define GLASS_AVAILABLE_THRESHOLD 80
+
 //2cl
 //#define TIME_TO_FILL_MS 3500
 
@@ -317,17 +321,8 @@ void make_shots(int number) {
 
     //is there a glass?
     if (checkForGlassEnabled) {
-      int distance = sensor.getDistance();
-      delay(100);
-      distance = sensor.getDistance();
-      terminal.print("Distance measured (mm) = ");
-      terminal.println(distance);
 
-      Blynk.virtualWrite(V5, distance);
-
-      if (distance > 80) {
-        where_is_a_glass_array[pos] = false;
-      }
+      where_is_a_glass_array[pos] = is_there_a_glass();
 
       generate_bullets_array(number, where_is_a_glass_array, bullet_positions_array);
 
@@ -372,6 +367,34 @@ void make_shots(int number) {
 }
 
 
+bool is_there_a_glass(){
+
+      if (checkForGlassEnabled) {
+        int distance = sensor.getDistance();
+        delay(100);
+        distance = sensor.getDistance();
+        terminal.print("Distance measured (mm) = ");
+        terminal.println(distance);
+  
+        Blynk.virtualWrite(V5, distance);
+  
+        if (distance < TO_NEAR_DISTANCE_THRESHOLD) {
+  
+          terminal.print("Distance measured was smaller than TO_NEAR_DISTANCE_THRESHOLD (mm) = ");
+          terminal.println(distance);
+          terminal.println("Assume there is no glass to avoid spilling if there is no glass and the sensor is dirty");
+          return false;
+        }
+  
+        if (distance > GLASS_AVAILABLE_THRESHOLD) {
+          return false;
+        }else{
+          return true;
+        }
+      }
+  
+}
+
 void fill_glass(int pump) {
 
   if (SIM_MODE) {
@@ -380,6 +403,10 @@ void fill_glass(int pump) {
     terminal.println(pump);
 
   } else {
+
+    if(!is_there_a_glass()){
+      return;
+    }
 
     terminal.print("Start pump ");
     terminal.println(pump);
