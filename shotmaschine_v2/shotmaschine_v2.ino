@@ -116,6 +116,24 @@ void setup() {
 }
 
 
+void loop() {
+
+  Blynk.run();
+
+  if (checkForGlassEnabled) {
+    int distance = sensor.getDistance();
+    terminal.println(distance);
+    Blynk.virtualWrite(V5, distance);
+    delay(500);
+  }
+
+  if (digitalRead(pinStartSwitch) == LOW) {
+    make_shots(number_of_shots);
+  }
+
+}
+
+
 void make_shots(int number) {
 
   if (!calibrated || eStopEnabled) {
@@ -285,7 +303,15 @@ void move_steps(int steps, int dir) {
     acceleration = steps / 2;
   }
 
-  terminal.println("Move Steps");
+  terminal.print("Move Steps: ");
+  terminal.print(steps);
+  terminal.print(" ");
+
+  if(dir){
+    terminal.println("right");
+  }else{
+    terminal.println("left");
+  }
 
   int position = 0;
 
@@ -396,6 +422,7 @@ bool is_there_a_glass() {
 
 }
 
+
 void fill_glass(int pump) {
 
   if (SIM_MODE) {
@@ -444,6 +471,7 @@ BLYNK_WRITE(V1)
   }
 }
 
+
 BLYNK_WRITE(V3)
 {
   int _number_of_shots = param.asInt();
@@ -460,6 +488,7 @@ BLYNK_WRITE(V3)
   terminal.println(number_of_shots);
 }
 
+
 BLYNK_WRITE(V4)
 {
   if (proximity_sensor_available) {
@@ -469,21 +498,4 @@ BLYNK_WRITE(V4)
   } else {
     terminal.println("Proximity Sensor not connected/available. Cannot enable or disable.");
   }
-}
-
-void loop() {
-
-  Blynk.run();
-
-  if (checkForGlassEnabled) {
-    int distance = sensor.getDistance();
-    terminal.println(distance);
-    Blynk.virtualWrite(V5, distance);
-    delay(500);
-  }
-
-  if (digitalRead(pinStartSwitch) == LOW) {
-    make_shots(number_of_shots);
-  }
-
 }
