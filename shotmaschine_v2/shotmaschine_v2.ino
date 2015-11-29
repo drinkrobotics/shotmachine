@@ -115,6 +115,101 @@ void setup() {
   }
 }
 
+
+void make_shots(int number) {
+
+  if (!calibrated || eStopEnabled) {
+    eStopEnabled = false;
+    move_right_until_endswitch_detected();
+    return;
+  }
+
+  digitalWrite(pinLEDStartButton, LOW);
+
+  terminal.println("Making shots...");
+
+  int bullet_positions_array[number];
+  bool where_is_a_glass_array[number];
+
+
+  //set all glasses to available
+  for (int pos = 0; pos < number; pos++) {
+
+    where_is_a_glass_array[pos] = true;
+
+  }
+
+  if (digitalRead(pinModeSwitch) == LOW) {
+    //russian roulette mode: enable pump 2 (strong schnaps)
+    //randomly NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE times.
+
+    generate_bullets_array(number, where_is_a_glass_array, bullet_positions_array);
+
+  } else {
+    //Normal mode: fill the glasses alternately
+    for (int pos = 0; pos < number; pos++) {
+      bullet_positions_array[pos] = pos % 2;
+    }
+  }
+
+  //scan for glasses while driving left
+  for (int pos = 0; pos < number; pos++) {
+
+    if (pos == 0) {
+      //longer drive for first shot
+      move_steps(STEPS_TO_FIRST_SHOT, LEFT);
+    } else {
+      move_steps(STEPS_BETWEEN_SHOTS, LEFT);
+    }
+
+    //is there a glass?
+    if (checkForGlassEnabled) {
+
+      where_is_a_glass_array[pos] = is_there_a_glass();
+
+      generate_bullets_array(number, where_is_a_glass_array, bullet_positions_array);
+
+    } else {
+      //if checkForGLasses is disabled directly fill in the glasses while going left
+      fill_glass(bullet_positions_array[pos]);
+    }
+  }
+
+
+  if (checkForGlassEnabled) {
+
+    terminal.println("fill the glasses on the way back to start");
+
+    int distance_to_drive = 0;
+    for (int pos = number - 1; pos >= 0; pos--) {
+
+      if (where_is_a_glass_array[pos]) {
+        move_steps(distance_to_drive, RIGHT);
+        fill_glass(bullet_positions_array[pos]);
+        distance_to_drive = 0;
+
+      }
+
+      if (pos == 0) {
+        //longer drive for first shot
+        distance_to_drive += STEPS_TO_FIRST_SHOT;
+        move_steps(distance_to_drive, RIGHT);
+      } else {
+        distance_to_drive += STEPS_BETWEEN_SHOTS;
+      }
+    }
+
+  } else {
+    //return to start
+    move_steps((number - 1)*STEPS_BETWEEN_SHOTS + STEPS_TO_FIRST_SHOT, RIGHT);
+  }
+
+  digitalWrite(pinLEDStartButton, HIGH);
+
+  terminal.println("Finished");
+}
+
+
 void init_VL6180() {
 
   Wire.begin(); //Start I2C library
@@ -273,126 +368,32 @@ void generate_bullets_array(int number, bool *where_is_a_glass_array, int *bulle
 }
 
 
-void make_shots(int number) {
-
-  if (!calibrated || eStopEnabled) {
-    eStopEnabled = false;
-    move_right_until_endswitch_detected();
-    return;
-  }
-
-  digitalWrite(pinLEDStartButton, LOW);
-
-  terminal.println("Making shots...");
-
-  int bullet_positions_array[number];
-  bool where_is_a_glass_array[number];
-
-
-  //set all glasses to available
-  for (int pos = 0; pos < number; pos++) {
-
-    where_is_a_glass_array[pos] = true;
-
-  }
-
-  if (digitalRead(pinModeSwitch) == LOW) {
-    //russian roulette mode: enable pump 2 (strong schnaps)
-    //randomly NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE times.
-
-    generate_bullets_array(number, where_is_a_glass_array, bullet_positions_array);
-
-  } else {
-    //Normal mode: fill the glasses alternately
-    for (int pos = 0; pos < number; pos++) {
-      bullet_positions_array[pos] = pos % 2;
-    }
-  }
-
-  //scan for glasses while driving left
-  for (int pos = 0; pos < number; pos++) {
-
-    if (pos == 0) {
-      //longer drive for first shot
-      move_steps(STEPS_TO_FIRST_SHOT, LEFT);
-    } else {
-      move_steps(STEPS_BETWEEN_SHOTS, LEFT);
-    }
-
-    //is there a glass?
-    if (checkForGlassEnabled) {
-
-      where_is_a_glass_array[pos] = is_there_a_glass();
-
-      generate_bullets_array(number, where_is_a_glass_array, bullet_positions_array);
-
-    } else {
-      //if checkForGLasses is disabled directly fill in the glasses while going left
-      fill_glass(bullet_positions_array[pos]);
-    }
-  }
-
+bool is_there_a_glass() {
 
   if (checkForGlassEnabled) {
+    int distance = sensor.getDistance();
+    delay(100);
+    distance = sensor.getDistance();
+    terminal.print("Distance measured (mm) = ");
+    terminal.println(distance);
 
-    terminal.println("fill the glasses on the way back to start");
+    Blynk.virtualWrite(V5, distance);
 
-    int distance_to_drive = 0;
-    for (int pos = number - 1; pos >= 0; pos--) {
+    if (distance < TO_NEAR_DISTANCE_THRESHOLD) {
 
-      if (where_is_a_glass_array[pos]) {
-        move_steps(distance_to_drive, RIGHT);
-        fill_glass(bullet_positions_array[pos]);
-        distance_to_drive = 0;
-
-      }
-
-      if (pos == 0) {
-        //longer drive for first shot
-        distance_to_drive += STEPS_TO_FIRST_SHOT;
-        move_steps(distance_to_drive, RIGHT);
-      } else {
-        distance_to_drive += STEPS_BETWEEN_SHOTS;
-      }
+      terminal.print("Distance measured was smaller than TO_NEAR_DISTANCE_THRESHOLD (mm) = ");
+      terminal.println(distance);
+      terminal.println("Assume there is no glass to avoid spilling if there is no glass and the sensor is dirty");
+      return false;
     }
 
-  } else {
-    //return to start
-    move_steps((number - 1)*STEPS_BETWEEN_SHOTS + STEPS_TO_FIRST_SHOT, RIGHT);
+    if (distance > GLASS_AVAILABLE_THRESHOLD) {
+      return false;
+    } else {
+      return true;
+    }
   }
 
-  digitalWrite(pinLEDStartButton, HIGH);
-
-  terminal.println("Finished");
-}
-
-
-bool is_there_a_glass(){
-
-      if (checkForGlassEnabled) {
-        int distance = sensor.getDistance();
-        delay(100);
-        distance = sensor.getDistance();
-        terminal.print("Distance measured (mm) = ");
-        terminal.println(distance);
-  
-        Blynk.virtualWrite(V5, distance);
-  
-        if (distance < TO_NEAR_DISTANCE_THRESHOLD) {
-  
-          terminal.print("Distance measured was smaller than TO_NEAR_DISTANCE_THRESHOLD (mm) = ");
-          terminal.println(distance);
-          terminal.println("Assume there is no glass to avoid spilling if there is no glass and the sensor is dirty");
-          return false;
-        }
-  
-        if (distance > GLASS_AVAILABLE_THRESHOLD) {
-          return false;
-        }else{
-          return true;
-        }
-      }
-  
 }
 
 void fill_glass(int pump) {
@@ -404,7 +405,7 @@ void fill_glass(int pump) {
 
   } else {
 
-    if(!is_there_a_glass()){
+    if (!is_there_a_glass()) {
       return;
     }
 
@@ -443,22 +444,8 @@ BLYNK_WRITE(V1)
   }
 }
 
-BLYNK_WRITE(V4)
-{
-  if(proximity_sensor_available){
-    checkForGlassEnabled = param.asInt();
-    terminal.print("Setting check for glasses to: ");
-    terminal.println(checkForGlassEnabled);
-  }else{
-    terminal.println("Proximity Sensor not connected/available. Cannot enable or disable.");
-  }
-}
-
-
 BLYNK_WRITE(V3)
 {
-  
-
   int _number_of_shots = param.asInt();
 
   if (_number_of_shots > 8) {
@@ -473,11 +460,20 @@ BLYNK_WRITE(V3)
   terminal.println(number_of_shots);
 }
 
+BLYNK_WRITE(V4)
+{
+  if (proximity_sensor_available) {
+    checkForGlassEnabled = param.asInt();
+    terminal.print("Setting check for glasses to: ");
+    terminal.println(checkForGlassEnabled);
+  } else {
+    terminal.println("Proximity Sensor not connected/available. Cannot enable or disable.");
+  }
+}
 
 void loop() {
 
   Blynk.run();
-
 
   if (checkForGlassEnabled) {
     int distance = sensor.getDistance();
