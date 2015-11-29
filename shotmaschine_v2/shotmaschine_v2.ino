@@ -194,6 +194,8 @@ void make_shots(int number) {
   }
 
 
+  //we are now on the left side and drive to the right to fill the glasses
+
   if (checkForGlassEnabled) {
 
     terminal.println("fill the glasses on the way back to start");
@@ -205,7 +207,6 @@ void make_shots(int number) {
         move_steps(distance_to_drive, RIGHT);
         fill_glass(bullet_positions_array[pos]);
         distance_to_drive = 0;
-
       }
 
       if (pos == 0) {
@@ -359,15 +360,30 @@ void move_steps(int steps, int dir) {
 
 void generate_bullets_array(int number, bool *where_is_a_glass_array, int *bullet_positions_array) {
 
-  //set all array elements to pump 0
+  //Init bullet positions array with 0, no bullet
   for (int pos = 0; pos < number; pos++) {
-
     bullet_positions_array[pos] = 0;
-
   }
 
-  //generate the bullets at random locations
+  //check how many glasses there are in total
+  int glass_count = 0;
+  for (int pos = 0; pos < number; pos++) {
 
+    if(where_is_a_glass_array[pos]){
+      glass_count++;
+    }
+  }
+
+  if(glass_count == 0){
+    terminal.println("No glasses found going back home.");
+    return;  
+  }
+
+  terminal.println("Number of available glasses: ");
+  terminal.println(glass_count);
+  terminal.println("\n");
+
+  //generate the bullets at random locations
   terminal.println("Number of bullets in game: ");
   terminal.println(NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE);
   terminal.println("\n");
