@@ -32,27 +32,23 @@ SoftwareSerial SwSerial(2, 3); // RX, TX
 #define TO_NEAR_DISTANCE_THRESHOLD 25
 #define GLASS_AVAILABLE_THRESHOLD 80
 
-//2cl
-//#define TIME_TO_FILL_MS 3500
-
 //time to fill 1cl ?
 #define TIME_TO_FILL_MS_PUMP_1 1750
 #define TIME_TO_FILL_MS_PUMP_2 1750
 
 #define SIM_MODE false
 
-bool checkForGlassEnabled = true;
+#define BLYNK_AUTO_KEY "f82e3a734586434487598f6968122ef7"
 
-int speed_delay_in_microseconds = 70; //works with acceleration
-//int speed_delay_in_microseconds = 200;
+#define SPEED_DELAY_IN_MICROSECONDS 70 //works with acceleration
+
+bool checkForGlassEnabled = true;
 
 ///////////////////////////////////////////////////////////////////////
 //don't change the following values as they will be overwritten///////
 ///////////////////////////////////////////////////////////////////////
 
 bool proximity_sensor_available = true;
-
-unsigned long lastInterrupt;
 
 bool calibrated = false;
 
@@ -61,17 +57,12 @@ bool eStopEnabled = false;
 volatile int endSwitchState = HIGH;
 
 int number_of_shots = NUMBER_OF_SHOTS;
+int number_of_bullets = NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE;
 
-
-//blynk: auth key
-char auth[] = "f82e3a734586434487598f6968122ef7";
-
-//blynk: set virtual pin 2 as terminal pin
 WidgetTerminal terminal(V2);
 
-VL6180xIdentification identification;
+//VL6180xIdentification identification;
 VL6180x sensor(VL6180X_ADDRESS);
-
 
 void setup() {
 
@@ -107,8 +98,9 @@ void setup() {
   randomSeed(666);
 
   SwSerial.begin(9600);
-  Blynk.begin(auth);
+  Blynk.begin(BLYNK_AUTO_KEY);
 
+  terminal.println("Shotbot v2 started");
 
   if (SIM_MODE) {
     terminal.println("Warning Sim mode enabled. Pumps deactivated!");
@@ -120,12 +112,16 @@ void loop() {
 
   Blynk.run();
 
+  /*
   if (checkForGlassEnabled) {
-    int distance = sensor.getDistance();
-    terminal.println(distance);
-    Blynk.virtualWrite(V5, distance);
-    delay(500);
+    if(permanent_proximity_scan){
+      int distance = sensor.getDistance();
+      terminal.println(distance);
+      Blynk.virtualWrite(V5, distance);
+      delay(1000);
+    }
   }
+  */
 
   if (digitalRead(pinStartSwitch) == LOW) {
     make_shots(number_of_shots);
@@ -139,7 +135,6 @@ void make_shots(int number) {
   if (!calibrated || eStopEnabled) {
     eStopEnabled = false;
     move_right_until_endswitch_detected();
-    return;
   }
 
   digitalWrite(pinLEDStartButton, LOW);
@@ -159,7 +154,7 @@ void make_shots(int number) {
 
   if (digitalRead(pinModeSwitch) == LOW) {
     //russian roulette mode: enable pump 2 (strong schnaps)
-    //randomly NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE times.
+    //randomly number_of_bullets times.
 
     generate_bullets_array(number, where_is_a_glass_array, bullet_positions_array);
 
@@ -232,7 +227,7 @@ void make_shots(int number) {
 void init_VL6180() {
 
   Wire.begin(); //Start I2C library
-  delay(100); // delay .1s
+  delay(200); // delay .1s
 
   if (sensor.VL6180xInit() != 0) {
     terminal.println("FAILED TO INITALIZE VL6180, Disabled Check for Glass"); //Initialize device and check for errors
@@ -274,7 +269,6 @@ void move_right_until_endswitch_detected() {
     }
   }
 
-
   terminal.println("Error: Timed out but no endswitch reached!");
 
   digitalWrite(pinEnable, HIGH);
@@ -308,9 +302,9 @@ void move_steps(int steps, int dir) {
   terminal.print(steps);
   terminal.print(" ");
 
-  if(dir){
+  if (dir) {
     terminal.println("right");
-  }else{
+  } else {
     terminal.println("left");
   }
 
@@ -331,16 +325,16 @@ void move_steps(int steps, int dir) {
     int wait_delay = 0;
 
     if (position < acceleration) {
-      wait_delay = speed_delay_in_microseconds + (acceleration - (position + 1)) * ((ramp_start_speed - speed_delay_in_microseconds) / acceleration);
+      wait_delay = SPEED_DELAY_IN_MICROSECONDS + (acceleration - (position + 1)) * ((ramp_start_speed - SPEED_DELAY_IN_MICROSECONDS) / acceleration);
 
 
     } else {
-      wait_delay = speed_delay_in_microseconds;
+      wait_delay = SPEED_DELAY_IN_MICROSECONDS;
     }
 
     int steps_before_end = steps - position;
     if (steps_before_end < acceleration) {
-      wait_delay = speed_delay_in_microseconds + (acceleration - (steps_before_end)) * ((ramp_start_speed - speed_delay_in_microseconds) / acceleration);
+      wait_delay = SPEED_DELAY_IN_MICROSECONDS + (acceleration - (steps_before_end)) * ((ramp_start_speed - SPEED_DELAY_IN_MICROSECONDS) / acceleration);
     }
 
     //terminal.println("Delay");
@@ -369,14 +363,14 @@ void generate_bullets_array(int number, bool *where_is_a_glass_array, int *bulle
   int glass_count = 0;
   for (int pos = 0; pos < number; pos++) {
 
-    if(where_is_a_glass_array[pos]){
+    if (where_is_a_glass_array[pos]) {
       glass_count++;
     }
   }
 
-  if(glass_count == 0){
+  if (glass_count == 0) {
     terminal.println("No glasses found going back home.");
-    return;  
+    return;
   }
 
   terminal.println("Number of available glasses: ");
@@ -385,10 +379,10 @@ void generate_bullets_array(int number, bool *where_is_a_glass_array, int *bulle
 
   //generate the bullets at random locations
   terminal.println("Number of bullets in game: ");
-  terminal.println(NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE);
+  terminal.println(number_of_bullets);
   terminal.println("\n");
 
-  for (int bullet_number = 0; bullet_number < NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE; bullet_number++) {
+  for (int bullet_number = 0; bullet_number < number_of_bullets; bullet_number++) {
 
     int random_number = random(number);
 
@@ -496,11 +490,14 @@ BLYNK_WRITE(V3)
     number_of_shots = NUMBER_OF_SHOTS;
   } else if (_number_of_shots < 1) {
     number_of_shots = 0;
+  } else if (_number_of_shots < number_of_bullets) {
+    number_of_shots = number_of_bullets;
+    terminal.print("Decrease number of bullets first!");
   } else {
     number_of_shots = _number_of_shots;
   }
 
-  terminal.print("Got message V3 Number of Shots set to: ");
+  terminal.print("Got message V3 number of shots set to: ");
   terminal.println(number_of_shots);
 }
 
@@ -515,3 +512,34 @@ BLYNK_WRITE(V4)
     terminal.println("Proximity Sensor not connected/available. Cannot enable or disable.");
   }
 }
+
+
+BLYNK_WRITE(V6)
+{
+  int _number_of_bullets = param.asInt();
+
+  if (_number_of_bullets > number_of_shots) {
+    number_of_bullets = number_of_shots;
+    terminal.print("Increase number of shots first!");
+  } else if (_number_of_bullets < 1) {
+    number_of_bullets = 0;
+  } else {
+    number_of_bullets = _number_of_bullets;
+  }
+
+  terminal.print("Got message V6 Number of bullets set to: ");
+  terminal.println(number_of_bullets);
+}
+
+/*
+BLYNK_WRITE(V7)
+{
+  if (proximity_sensor_available) {
+    permanent_proximity_scan = param.asInt();
+    terminal.print("Setting permanent proximity scan to: ");
+    terminal.println(permanent_proximity_scan);
+  } else {
+    terminal.println("Proximity Sensor not connected/available. Cannot enable or disable permanent scan.");
+  }
+}
+*/
