@@ -120,12 +120,14 @@ void loop() {
 
   Blynk.run();
 
+  /*
   if (checkForGlassEnabled) {
     int distance = sensor.getDistance();
     terminal.println(distance);
     Blynk.virtualWrite(V5, distance);
     delay(500);
   }
+  */
 
   if (digitalRead(pinStartSwitch) == LOW) {
     make_shots(number_of_shots);
@@ -139,7 +141,6 @@ void make_shots(int number) {
   if (!calibrated || eStopEnabled) {
     eStopEnabled = false;
     move_right_until_endswitch_detected();
-    return;
   }
 
   digitalWrite(pinLEDStartButton, LOW);
