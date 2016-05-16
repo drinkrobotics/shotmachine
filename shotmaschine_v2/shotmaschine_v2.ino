@@ -129,13 +129,30 @@ void loop() {
   }
   */
 
-  if (digitalRead(pinStartSwitch) == LOW) {
-    make_shots(number_of_shots);
+  if (digitalRead(pinModeSwitch) == LOW) {
+    if (digitalRead(pinStartSwitch) == LOW) {
+       make_shots(number_of_shots);
+    }
+  }else{
+    if (digitalRead(pinStartSwitch) == LOW) {
+      start_all_pumps();
+    }else{
+      stop_all_pumps();
+    }
+       
   }
 
 }
 
+void start_all_pumps(){
+      digitalWrite(pinPump1, LOW);
+      digitalWrite(pinPump2, LOW);    
+}
 
+void stop_all_pumps(){
+      digitalWrite(pinPump2, HIGH);
+      digitalWrite(pinPump1, HIGH);
+}
 void make_shots(int number) {
 
   if (!calibrated || eStopEnabled) {
@@ -158,18 +175,10 @@ void make_shots(int number) {
 
   }
 
-  if (digitalRead(pinModeSwitch) == LOW) {
     //russian roulette mode: enable pump 2 (strong schnaps)
     //randomly NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE times.
 
     generate_bullets_array(number, where_is_a_glass_array, bullet_positions_array);
-
-  } else {
-    //Normal mode: fill the glasses alternately
-    for (int pos = 0; pos < number; pos++) {
-      bullet_positions_array[pos] = pos % 2;
-    }
-  }
 
   //scan for glasses while driving left
   for (int pos = 0; pos < number; pos++) {
