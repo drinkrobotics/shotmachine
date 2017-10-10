@@ -2,10 +2,10 @@
 #include <SparkFun_VL6180X.h>
 
 //blynk
-#include <SoftwareSerial.h>
-SoftwareSerial SwSerial(2, 3); // RX, TX
-#define BLYNK_PRINT SwSerial
-#include <BlynkSimpleSerial.h>
+//#include <SoftwareSerial.h>
+//SoftwareSerial SwSerial(2, 3); // RX, TX
+//#define BLYNK_PRINT SwSerial
+//#include <BlynkSimpleSerial.h>
 
 #define VL6180X_ADDRESS 0x29
 #define pinEnable 12
@@ -19,7 +19,6 @@ SoftwareSerial SwSerial(2, 3); // RX, TX
 #define pinPump1 4
 #define pinPump2 5
 
-
 #define RIGHT 1
 #define LEFT 0
 
@@ -29,7 +28,7 @@ SoftwareSerial SwSerial(2, 3); // RX, TX
 #define STEPS_BETWEEN_SHOTS 840
 
 //proximity sensor
-#define TO_NEAR_DISTANCE_THRESHOLD 25
+#define TO_NEAR_DISTANCE_THRESHOLD 10
 #define GLASS_AVAILABLE_THRESHOLD 80
 
 //2cl
@@ -52,8 +51,6 @@ int speed_delay_in_microseconds = 70; //works with acceleration
 
 bool proximity_sensor_available = true;
 
-unsigned long lastInterrupt;
-
 bool calibrated = false;
 
 bool eStopEnabled = false;
@@ -64,10 +61,10 @@ int number_of_shots = NUMBER_OF_SHOTS;
 
 
 //blynk: auth key
-char auth[] = "f82e3a734586434487598f6968122ef7";
+//char auth[] = "f82e3a734586434487598f6968122ef7";
 
 //blynk: set virtual pin 2 as terminal pin
-WidgetTerminal terminal(V2);
+//WidgetTerminal terminal(V2);
 
 VL6180xIdentification identification;
 VL6180x sensor(VL6180X_ADDRESS);
@@ -106,28 +103,34 @@ void setup() {
 
   randomSeed(666);
 
-  SwSerial.begin(9600);
-  Blynk.begin(auth);
+  //SwSerial.begin(9600);
+  //Blynk.begin(auth);
+
+  Serial.begin(9600);
 
 
   if (SIM_MODE) {
-    terminal.println("Warning Sim mode enabled. Pumps deactivated!");
+    Serial.println("Warning Sim mode enabled. Pumps deactivated!");
   }
 }
 
 
 void loop() {
 
-  Blynk.run();
+  //Blynk.run();
 
   /*
   if (checkForGlassEnabled) {
     int distance = sensor.getDistance();
-    terminal.println(distance);
+    Serial.println(distance);
     Blynk.virtualWrite(V5, distance);
     delay(500);
   }
   */
+
+  int distance = sensor.getDistance();
+  Serial.print("Distance measured (mm) = ");
+  Serial.println(distance);
 
   if (digitalRead(pinModeSwitch) == LOW) {
     if (digitalRead(pinStartSwitch) == LOW) {
@@ -162,7 +165,7 @@ void make_shots(int number) {
 
   digitalWrite(pinLEDStartButton, LOW);
 
-  terminal.println("Making shots...");
+  Serial.println("Making shots...");
 
   int bullet_positions_array[number];
   bool where_is_a_glass_array[number];
@@ -208,7 +211,7 @@ void make_shots(int number) {
 
   if (checkForGlassEnabled) {
 
-    terminal.println("fill the glasses on the way back to start");
+    Serial.println("fill the glasses on the way back to start");
 
     int distance_to_drive = 0;
     for (int pos = number - 1; pos >= 0; pos--) {
@@ -235,7 +238,7 @@ void make_shots(int number) {
 
   digitalWrite(pinLEDStartButton, HIGH);
 
-  terminal.println("Finished");
+  Serial.println("Finished");
 }
 
 
@@ -245,7 +248,7 @@ void init_VL6180() {
   delay(100); // delay .1s
 
   if (sensor.VL6180xInit() != 0) {
-    terminal.println("FAILED TO INITALIZE VL6180, Disabled Check for Glass"); //Initialize device and check for errors
+    Serial.println("FAILED TO INITALIZE VL6180, Disabled Check for Glass"); //Initialize device and check for errors
     proximity_sensor_available = false;
     checkForGlassEnabled = false;
   };
@@ -258,7 +261,7 @@ void init_VL6180() {
 
 void move_right_until_endswitch_detected() {
 
-  terminal.println("Move right until endswitch detected");
+  Serial.println("Move right until endswitch detected");
   digitalWrite(pinEnable, LOW);
 
   digitalWrite(pinDir, RIGHT);
@@ -279,13 +282,13 @@ void move_right_until_endswitch_detected() {
       move_steps(70, LEFT);
 
       calibrated = true;
-      terminal.println("Successfully calibrated!");
+      Serial.println("Successfully calibrated!");
       return;
     }
   }
 
 
-  terminal.println("Error: Timed out but no endswitch reached!");
+  Serial.println("Error: Timed out but no endswitch reached!");
 
   digitalWrite(pinEnable, HIGH);
 
@@ -293,7 +296,7 @@ void move_right_until_endswitch_detected() {
 
 
 void endSwitchInterrupt() {
-  terminal.println("End Switch Interrupt");
+  Serial.println("End Switch Interrupt");
 
   endSwitchState = LOW;
 
@@ -314,14 +317,14 @@ void move_steps(int steps, int dir) {
     acceleration = steps / 2;
   }
 
-  terminal.print("Move Steps: ");
-  terminal.print(steps);
-  terminal.print(" ");
+  Serial.print("Move Steps: ");
+  Serial.print(steps);
+  Serial.print(" ");
 
   if(dir){
-    terminal.println("right");
+    Serial.println("right");
   }else{
-    terminal.println("left");
+    Serial.println("left");
   }
 
   int position = 0;
@@ -334,7 +337,7 @@ void move_steps(int steps, int dir) {
 
   for (position = 0; position < steps; position++) {
     if (eStopEnabled) {
-      terminal.println("E Stop enabled, press start to disable. This happened because end switch was pressed and it was already calibrated.");
+      Serial.println("E Stop enabled, press start to disable. This happened because end switch was pressed and it was already calibrated.");
       break;
     }
 
@@ -353,8 +356,8 @@ void move_steps(int steps, int dir) {
       wait_delay = speed_delay_in_microseconds + (acceleration - (steps_before_end)) * ((ramp_start_speed - speed_delay_in_microseconds) / acceleration);
     }
 
-    //terminal.println("Delay");
-    //terminal.println(wait_delay);
+    //Serial.println("Delay");
+    //Serial.println(wait_delay);
 
     digitalWrite(pinStep, HIGH);
     delayMicroseconds(wait_delay);
@@ -385,18 +388,18 @@ void generate_bullets_array(int number, bool *where_is_a_glass_array, int *bulle
   }
 
   if(glass_count == 0){
-    terminal.println("No glasses found going back home.");
+    Serial.println("No glasses found going back home.");
     return;  
   }
 
-  terminal.println("Number of available glasses: ");
-  terminal.println(glass_count);
-  terminal.println("\n");
+  Serial.println("Number of available glasses: ");
+  Serial.println(glass_count);
+  Serial.println("\n");
 
   //generate the bullets at random locations
-  terminal.println("Number of bullets in game: ");
-  terminal.println(NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE);
-  terminal.println("\n");
+  Serial.println("Number of bullets in game: ");
+  Serial.println(NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE);
+  Serial.println("\n");
 
   for (int bullet_number = 0; bullet_number < NUMBER_OF_BULLETS_IN_RUSSIAN_ROULETTE; bullet_number++) {
 
@@ -404,15 +407,15 @@ void generate_bullets_array(int number, bool *where_is_a_glass_array, int *bulle
 
     //find a space in the array with no bullet
     while (bullet_positions_array[random_number] == 1 || where_is_a_glass_array[random_number] == false) {
-      terminal.println("Position not suitable for bullet because either there was already a bullet or no glass at this position");
-      terminal.println(random_number);
-      terminal.println("\n");
+      Serial.println("Position not suitable for bullet because either there was already a bullet or no glass at this position");
+      Serial.println(random_number);
+      Serial.println("\n");
       random_number = random(number);
     }
 
-    terminal.println("Bullet at Position: ");
-    terminal.println(random_number);
-    terminal.println("\n");
+    Serial.println("Bullet at Position: ");
+    Serial.println(random_number);
+    Serial.println("\n");
 
     bullet_positions_array[random_number] = 1;
 
@@ -426,16 +429,16 @@ bool is_there_a_glass() {
     int distance = sensor.getDistance();
     delay(100);
     distance = sensor.getDistance();
-    terminal.print("Distance measured (mm) = ");
-    terminal.println(distance);
+    Serial.print("Distance measured (mm) = ");
+    Serial.println(distance);
 
-    Blynk.virtualWrite(V5, distance);
+   // Blynk.virtualWrite(V5, distance);
 
     if (distance < TO_NEAR_DISTANCE_THRESHOLD) {
 
-      terminal.print("Distance measured was smaller than TO_NEAR_DISTANCE_THRESHOLD (mm) = ");
-      terminal.println(distance);
-      terminal.println("Assume there is no glass to avoid spilling if there is no glass and the sensor is dirty");
+      Serial.print("Distance measured was smaller than TO_NEAR_DISTANCE_THRESHOLD (mm) = ");
+      Serial.println(distance);
+      Serial.println("Assume there is no glass to avoid spilling if there is no glass and the sensor is dirty");
       return false;
     }
 
@@ -453,8 +456,8 @@ void fill_glass(int pump) {
 
   if (SIM_MODE) {
 
-    terminal.print("Start pump ");
-    terminal.println(pump);
+    Serial.print("Start pump ");
+    Serial.println(pump);
 
   } else {
 
@@ -462,8 +465,8 @@ void fill_glass(int pump) {
       return;
     }
 
-    terminal.print("Start pump ");
-    terminal.println(pump);
+    Serial.print("Start pump ");
+    Serial.println(pump);
 
     if (pump == 0) {
       digitalWrite(pinPump1, LOW);
@@ -475,8 +478,8 @@ void fill_glass(int pump) {
       digitalWrite(pinPump2, HIGH);
     }
 
-    terminal.print("Stop pump.");
-    terminal.println(pump);
+    Serial.print("Stop pump.");
+    Serial.println(pump);
 
     //delay for drops
     delay(400);
@@ -486,9 +489,9 @@ void fill_glass(int pump) {
 
 // This function will be called every time
 // when App writes value to Virtual Pin 1
-BLYNK_WRITE(V1)
+/*BLYNK_WRITE(V1)
 {
-  terminal.println("Got message V1 virtual start button");
+  Serial.println("Got message V1 virtual start button");
 
   int i = param.asInt();
 
@@ -496,7 +499,6 @@ BLYNK_WRITE(V1)
     make_shots(number_of_shots);
   }
 }
-
 
 BLYNK_WRITE(V3)
 {
@@ -510,8 +512,8 @@ BLYNK_WRITE(V3)
     number_of_shots = _number_of_shots;
   }
 
-  terminal.print("Got message V3 Number of Shots set to: ");
-  terminal.println(number_of_shots);
+  Serial.print("Got message V3 Number of Shots set to: ");
+  Serial.println(number_of_shots);
 }
 
 
@@ -519,9 +521,11 @@ BLYNK_WRITE(V4)
 {
   if (proximity_sensor_available) {
     checkForGlassEnabled = param.asInt();
-    terminal.print("Setting check for glasses to: ");
-    terminal.println(checkForGlassEnabled);
+    Serial.print("Setting check for glasses to: ");
+    Serial.println(checkForGlassEnabled);
   } else {
-    terminal.println("Proximity Sensor not connected/available. Cannot enable or disable.");
+    Serial.println("Proximity Sensor not connected/available. Cannot enable or disable.");
   }
 }
+*/
+
